@@ -1,5 +1,6 @@
 #include "server.hpp"
-#include "inference.hpp"
+#include "request_queue.hpp"
+#include "scheduler.hpp"
 #include <httplib.h>
 #include <nlohmann/json.hpp>
 
@@ -9,14 +10,22 @@ namespace server {
 
 void start(int port) {
     httplib::Server svr;
+    RequestQueue queue;
 
-    svr.Post("/generate", [](const httplib::Request & req, httplib::Response & res) {
+    scheduler::start(queue);
+
+    svr.Post("/generate", [&](const httplib::Request & req, httplib::Response & res) {
         try {
             json body = json::parse(req.body);
             std::string prompt = body.at("prompt").get<std::string>();
             int n_predict = body.value("n_predict", 32);
 
-            std::string result = run_inference(prompt, n_predict);
+            std::promise<std::string> result_promise;
+            std::future<std::string> result_future = result_promise.get_future();
+
+            queue.push(Request{prompt, n_predict, std::move(result_promise)});
+
+            std::string result = result_future.get();
 
             json response = {{"response", result}};
             res.set_content(response.dump(), "application/json");

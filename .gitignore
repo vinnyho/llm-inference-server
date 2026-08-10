@@ -4,3 +4,4 @@ writeup.md
 llama.cpp/
 build/
 models/
+compile_commands.json

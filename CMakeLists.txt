@@ -24,6 +24,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_subdirectory(llama.cpp)
 
-add_executable(main main.cpp src/inference.cpp src/server.cpp)
+add_executable(main main.cpp src/inference.cpp src/server.cpp src/scheduler.cpp)
 
 target_link_libraries(main PRIVATE llama httplib nlohmann_json::nlohmann_json)
