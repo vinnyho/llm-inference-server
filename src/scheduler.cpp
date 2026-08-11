@@ -2,13 +2,18 @@
 #include "inference.hpp"
 #include <thread>
 
+static const int BATCH_SIZE = 4;
+
 namespace scheduler {
 
 static void worker_loop(RequestQueue & queue) {
     while (true) {
-        Request req = queue.pop();
-        std::string result = run_inference(req.prompt, req.n_predict);
-        req.result_promise.set_value(result);
+        std::vector<Request> batch;
+        for (int i = 0; i < BATCH_SIZE; i++) {
+            batch.push_back((queue.pop()));
+                
+        }
+        run_inference_batch(batch);
     }
 }
 
