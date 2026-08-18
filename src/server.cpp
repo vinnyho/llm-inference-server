@@ -8,11 +8,11 @@ using json = nlohmann::json;
 
 namespace server {
 
-void start(int port) {
+void start(int port, scheduler::Config sched_cfg) {
     httplib::Server svr;
     RequestQueue queue;
 
-    scheduler::start(queue);
+    scheduler::start(queue, sched_cfg);
 
     svr.Post("/generate", [&](const httplib::Request & req, httplib::Response & res) {
         try {

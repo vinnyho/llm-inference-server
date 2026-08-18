@@ -2,21 +2,17 @@
 #include "inference.hpp"
 #include <thread>
 #include <vector>
-#include <chrono>
-
-static const int BATCH_SIZE = 4;
-static const auto MAX_WAIT = std::chrono::milliseconds(10);
 
 namespace scheduler {
 
-static void worker_loop(RequestQueue & queue) {
+static void worker_loop(RequestQueue & queue, Config cfg) {
     while (true) {
         std::vector<Request> batch;
         batch.push_back(queue.pop());
 
-        auto deadline = std::chrono::steady_clock::now() + MAX_WAIT;
+        auto deadline = std::chrono::steady_clock::now() + cfg.max_wait;
 
-        while (batch.size() < BATCH_SIZE) {
+        while ((int) batch.size() < cfg.batch_size) {
             auto remaining = deadline - std::chrono::steady_clock::now();
             if (remaining <= std::chrono::milliseconds(0)) {
                 break;
@@ -29,12 +25,15 @@ static void worker_loop(RequestQueue & queue) {
             batch.push_back(std::move(*item));
         }
 
+        // TODO (section 3): drop any request in `batch` whose deadline has
+        // already passed, before calling run_inference_batch — needs
+        // Request::deadline, added in section 2.
         run_inference_batch(batch);
     }
 }
 
-void start(RequestQueue & queue) {
-    std::thread worker(worker_loop, std::ref(queue));
+void start(RequestQueue & queue, Config cfg) {
+    std::thread worker(worker_loop, std::ref(queue), cfg);
     worker.detach();
 }
 

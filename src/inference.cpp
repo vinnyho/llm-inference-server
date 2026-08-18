@@ -56,7 +56,7 @@ void run_inference_batch(std::vector<Request> & requests) {
     llama_context_params ctx_params = llama_context_default_params();
     ctx_params.n_seq_max = n_seq;
     ctx_params.n_ctx = n_seq * max_tokens;
-    ctx_params.n_batch = ctx_params.n_ctx;
+    ctx_params.n_batch = std::min(ctx_params.n_ctx, 2048u);
 
     llama_context * ctx = llama_init_from_model(g_model, ctx_params);
     if (ctx == nullptr) {
