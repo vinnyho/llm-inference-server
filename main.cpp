@@ -59,6 +59,6 @@ int main(int argc, char ** argv) {
     sched_cfg.batch_size = cfg.batch_size;
     sched_cfg.max_wait = std::chrono::milliseconds(cfg.batch_wait_ms);
 
-    server::start(cfg.port, sched_cfg);
+    server::start(cfg.port, sched_cfg, cfg.request_timeout_ms);
     return 0;
 }

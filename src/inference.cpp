@@ -104,24 +104,39 @@ void run_inference_batch(std::vector<Request> & requests) {
         for (auto & s : slots) {
             if (s.finished) continue;
 
+            Request & req = requests[s.seq_id];
+
+            if (req.cancelled && req.cancelled->load()) {
+                s.finished = true;
+                n_active--;
+                if (req.token_channel) req.token_channel->close("cancelled", s.n_generated);
+                req.result_promise.set_value(s.result);
+                continue;
+            }
+
             llama_token new_token = llama_sampler_sample(smpl, ctx, s.logits_index);
 
             if (llama_vocab_is_eog(g_vocab, new_token)) {
                 s.finished = true;
                 n_active--;
-                requests[s.seq_id].result_promise.set_value(s.result);
+                if (req.token_channel) req.token_channel->close("stop", s.n_generated);
+                req.result_promise.set_value(s.result);
                 continue;
             }
 
             char buf[128];
             int n = llama_token_to_piece(g_vocab, new_token, buf, sizeof(buf), 0, true);
-            s.result += std::string(buf, n);
+            std::string piece(buf, n);
+            s.result += piece;
             s.n_generated++;
+
+            if (req.token_channel) req.token_channel->push_token(piece);
 
             if (s.n_generated >= s.n_predict) {
                 s.finished = true;
                 n_active--;
-                requests[s.seq_id].result_promise.set_value(s.result);
+                if (req.token_channel) req.token_channel->close("length", s.n_generated);
+                req.result_promise.set_value(s.result);
                 continue;
             }
 
