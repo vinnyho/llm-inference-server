@@ -4,3 +4,6 @@ writeup.md
 llama.cpp/
 build/
 models/
+bench/server.log
+bench/results.jsonl
+__pycache__/

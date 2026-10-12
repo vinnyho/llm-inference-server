@@ -1,5 +1,6 @@
 #include "scheduler.hpp"
 #include "inference.hpp"
+#include "metrics.hpp"
 #include <thread>
 #include <vector>
 
@@ -25,10 +26,30 @@ static void worker_loop(RequestQueue & queue, Config cfg) {
             batch.push_back(std::move(*item));
         }
 
-        // TODO (section 3): drop any request in `batch` whose deadline has
-        // already passed, before calling run_inference_batch — needs
-        // Request::deadline, added in section 2.
-        run_inference_batch(batch);
+        // Requests that expired or were abandoned while queued never reach the
+        // model, so they don't take a slot away from requests that can still
+        // finish in time.
+        auto now = std::chrono::steady_clock::now();
+        std::vector<Request> runnable;
+        runnable.reserve(batch.size());
+        for (auto & req : batch) {
+            if (now >= req.deadline) {
+                complete_request(req, "timeout", "", 0);
+            } else if (req.cancelled && req.cancelled->load()) {
+                complete_request(req, "cancelled", "", 0);
+            } else {
+                metrics::get().queue_wait_seconds.observe(metrics::seconds_since(req.enqueue_time));
+                runnable.push_back(std::move(req));
+            }
+        }
+
+        if (runnable.empty()) {
+            continue;
+        }
+
+        metrics::get().batches_run++;
+        metrics::get().batch_size.observe((double) runnable.size());
+        run_inference_batch(runnable);
     }
 }
 
